@@ -8,44 +8,7 @@ import torchvision.models as models
 from .layers import FingerprintBlock, FrequencyEncoder, SelfAttention
 import config
 
-# class FingerprintNet(nn.Module):
-#     """
-#     GANFingerprint network for deepfake detection.
-#     Uses a pre-trained backbone and adds specialized fingerprint detection layers.
-#     """
-#     def __init__(self, backbone=config.BACKBONE, pretrained=True):
-#         super(FingerprintNet, self).__init__()
-        
-#         # Load pre-trained backbone model (feature extractor)
-#         if backbone == 'resnet18':
-#             base_model = models.resnet18(pretrained=pretrained)
-#             self.feature_dims = 512
-#         elif backbone == 'resnet34':
-#             base_model = models.resnet34(pretrained=pretrained)
-#             self.feature_dims = 512
-#         elif backbone == 'resnet50':
-#             base_model = models.resnet50(pretrained=pretrained)
-#             self.feature_dims = 2048
-#         else:
-#             raise ValueError(f"Backbone {backbone} not supported")
-        
-#         # Remove the final FC layer
-#         self.backbone = nn.Sequential(*list(base_model.children())[:-2])
-        
-#         # Add fingerprint-specific layers
-#         self.fingerprint_block1 = FingerprintBlock(self.feature_dims, self.feature_dims)
-#         self.fingerprint_block2 = FingerprintBlock(self.feature_dims, self.feature_dims // 2)
-        
-#         # Global average pooling
-#         self.gap = nn.AdaptiveAvgPool2d(1)
-        
-#         # Fingerprint embedding layer
-#         self.embedding = nn.Sequential(
-#             nn.Linear(self.feature_dims // 2, config.EMBEDDING_DIM),
-#             nn.BatchNorm1d(config.EMBEDDING_DIM),
-#             nn.ReLU(inplace=True),
-#             nn.Dropout(config.DROPOUT_RATE)
-#         )
+
 class FingerprintNet(nn.Module):
     """GANFingerprint network with multi-layer feature fusion."""
     
@@ -126,15 +89,6 @@ class FingerprintNet(nn.Module):
             nn.Dropout(config.DROPOUT_RATE)
         )
         
-        # # Enhanced classifier
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(config.EMBEDDING_DIM, 256),
-        #     nn.BatchNorm1d(256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(config.DROPOUT_RATE),
-        #     nn.Linear(256, 1)
-        # )
-
         class EnhancedClassifier(nn.Module):
             def __init__(self, embedding_dim, dropout_rate):
                 super(EnhancedClassifier, self).__init__()
@@ -179,61 +133,10 @@ class FingerprintNet(nn.Module):
                 return self.classifier(out3)
             
         self.classifier = EnhancedClassifier(config.EMBEDDING_DIM, config.DROPOUT_RATE)
-
-        # # Increased depth, wider layers, Leaky ReLU, Graduated dropout
-        # self.classifier = nn.Sequential(
-        #     # First layer with more neurons
-        #     nn.Linear(config.EMBEDDING_DIM, 512),
-        #     nn.BatchNorm1d(512),
-        
-        #     nn.LeakyReLU(negative_slope=0.1, inplace=True),
-        #     nn.Dropout(config.DROPOUT_RATE),
-            
-        #     # Second layer with residual connection
-        #     nn.Linear(512, 256),
-        #     nn.BatchNorm1d(256),
-        #     nn.LeakyReLU(negative_slope=0.1, inplace=True),
-        #     nn.Dropout(config.DROPOUT_RATE),
-            
-        #     # Additional layer for more capacity
-        #     nn.Linear(256, 128),
-        #     nn.BatchNorm1d(128),
-        #     nn.LeakyReLU(negative_slope=0.1, inplace=True),
-        #     nn.Dropout(config.DROPOUT_RATE * 0.8),  # Slightly lower dropout
-            
-        #     # Final classification layer
-        #     nn.Linear(128, 1)
-        # )
-        
-        # Classifier
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(config.EMBEDDING_DIM, 256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(config.DROPOUT_RATE),
-        #     nn.Linear(256, 1)
-        # )
-
-        # Add more layers to classifier
-        
         
         # Initialize weights for new layers
         self._initialize_weights()
     
-    # def _initialize_weights(self):
-    #     """Initialize weights for the new layers."""
-    #     for m in self.modules():
-    #         if isinstance(m, nn.Conv2d):
-    #             nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-    #             if m.bias is not None:
-    #                 nn.init.constant_(m.bias, 0)
-    #         elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
-    #             nn.init.constant_(m.weight, 1)
-    #             nn.init.constant_(m.bias, 0)
-    #         elif isinstance(m, nn.Linear):
-    #             nn.init.normal_(m.weight, 0, 0.01)
-    #             nn.init.constant_(m.bias, 0)
-    
-
     def _initialize_weights(self):
         """Initialize weights deterministically"""
         # Use a fixed seed for weight initialization
@@ -254,33 +157,6 @@ class FingerprintNet(nn.Module):
         # Reset seed after initialization
         torch.manual_seed(torch.initial_seed())
         
-    # def extract_features(self, x):
-    #     """Extract deep features for visualization or analysis."""
-    #     # Extract features from backbone
-    #     features = self.backbone(x)
-        
-    #     # Process through fingerprint blocks
-    #     features = self.fingerprint_block1(features)
-    #     features = self.fingerprint_block2(features)
-        
-    #     # Global average pooling
-    #     features = self.gap(features)
-    #     features = features.view(features.size(0), -1)
-        
-    #     # Get fingerprint embedding
-    #     embedding = self.embedding(features)
-        
-    #     return embedding
-    
-    # def forward(self, x):
-    #     """Forward pass for classification."""
-    #     # Get embedding
-    #     embedding = self.extract_features(x)
-        
-    #     # Classification
-    #     logits = self.classifier(embedding)
-    #     return logits.squeeze()
-    
     def forward(self, x):
         # Extract multi-level spatial features
         low_features = self.backbone_low(x)

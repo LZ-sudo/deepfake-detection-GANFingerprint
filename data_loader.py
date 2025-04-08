@@ -92,46 +92,6 @@ class DeepfakeDataset(Dataset):
         
         return image, label
 
-
-# def get_transforms(phase):
-#     """
-#     Get the transformations for each dataset phase.
-    
-#     Args:
-#         phase (str): 'train', 'val', or 'test'
-    
-#     Returns:
-#         torchvision.transforms: Transforms to apply to images
-#     """
-#     mean = [0.485, 0.456, 0.406]  # ImageNet mean
-#     std = [0.229, 0.224, 0.225]   # ImageNet std
-    
-#     if phase == 'train':
-#         return transforms.Compose([
-#             transforms.RandomResizedCrop(config.INPUT_SIZE, scale=(0.8, 1.0)),
-#             transforms.RandomHorizontalFlip(),
-#             transforms.ColorJitter(
-#                 brightness=0.1 * config.AUG_STRENGTH,
-#                 contrast=0.1 * config.AUG_STRENGTH,
-#                 saturation=0.1 * config.AUG_STRENGTH,
-#                 hue=0.05 * config.AUG_STRENGTH
-#             ),
-#             transforms.RandomAffine(
-#                 degrees=5 * config.AUG_STRENGTH,
-#                 translate=(0.05 * config.AUG_STRENGTH, 0.05 * config.AUG_STRENGTH),
-#                 scale=(1 - 0.1 * config.AUG_STRENGTH, 1 + 0.1 * config.AUG_STRENGTH),
-#             ),
-#             transforms.ToTensor(),
-#             transforms.Normalize(mean=mean, std=std)
-#         ])
-#     else:  # val or test
-#         return transforms.Compose([
-#             transforms.Resize(config.INPUT_SIZE),
-#             transforms.CenterCrop(config.INPUT_SIZE),
-#             transforms.ToTensor(),
-#             transforms.Normalize(mean=mean, std=std)
-#         ])
-
 # New get_transform(phase) function for custom augmentations.py
 def get_transforms(phase):
     """
