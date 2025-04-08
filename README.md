@@ -54,8 +54,8 @@ deepfake_detector/
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/ganfingerprint-deepfake-detection.git
-cd ganfingerprint-deepfake-detection
+git clone https://github.com/LZ-sudo/deepfake-detection-GANFingerprint.git
+cd deepfake-detection-GANFingerprint
 ```
 
 2. Create and activate a virtual environment:
@@ -79,8 +79,8 @@ pip install -r requirements.txt
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/ganfingerprint-deepfake-detection.git
-cd ganfingerprint-deepfake-detection
+git clone https://github.com/LZ-sudo/deepfake-detection-GANFingerprint.git
+cd deepfake-detection-GANFingerprint
 ```
 
 2. Create and activate a conda environment:
@@ -212,7 +212,7 @@ As long as you use the same dataset and compatible library versions, you should 
 
 ## Citation
 
-If you use this code in your research, please cite our project:
+If you use this code in your research, please cite my project:
 
 ```
 @misc{ganfingerprint2025,
@@ -221,6 +221,6 @@ If you use this code in your research, please cite our project:
   year = {2025},
   publisher = {Chow Liang Zhi},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/yourusername/ganfingerprint-deepfake-detection}}
+  howpublished = {\url{https://github.com/LZ-sudo/deepfake-detection-GANFingerprint.git}}
 }
 ```
