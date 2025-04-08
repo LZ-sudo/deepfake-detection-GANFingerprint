@@ -37,7 +37,6 @@ deepfake_detector/
 │   ├── reproducibility.py    # Random seed and reproducibility utilities
 │   ├── visualization.py      # Plotting and visualization tools
 │   ├── metrics.py            # Performance metrics calculation
-│   ├── losses.py             # Custom loss functions
 │   ├── augmentations.py      # Advanced augmentation techniques
 ├── checkpoints/              # Directory for saved model checkpoints
 ├── logs/                     # TensorBoard logs and training records
