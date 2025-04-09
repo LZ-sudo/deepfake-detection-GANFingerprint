@@ -53,6 +53,7 @@ deepfake_detector/
 
 This project requires the following dependencies:
 ```
+#Can be saved as requirements.txt
 torch>=1.8.0,<2.0.0
 torchvision>=0.9.0,<2.0.0
 numpy>=1.19.0
@@ -204,10 +205,6 @@ As long as you use the same dataset and compatible library versions, you should 
 3. **Library Compatibility Issues**:
    - If you encounter errors with newer PyTorch versions, try downgrading to 1.8.0-1.9.0
    - For any missing function errors, check the library documentation for version compatibility
-
-## License
-
-[MIT License](LICENSE)
 
 ## Citation
 
