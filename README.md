@@ -151,7 +151,7 @@ python train.py --data_root /path/to/data --batch_size 32 --lr 0.0003 --epochs 3
 python train.py --no_amp
 
 # Resume from a checkpoint
-python train.py --resume_checkpoint checkpoints/ganfingerprint_20250408_123456_best.pth
+python train.py --resume_checkpoint checkpoints/[pth_file_name]
 ```
 
 ### Monitoring Training
@@ -167,17 +167,17 @@ Then open your browser at http://localhost:6006 to monitor training progress.
 
 ```bash
 # Evaluate the model on the test set
-python evaluate.py --checkpoint checkpoints/ganfingerprint_20250408_123456_best.pth --output_dir eval_results
+python evaluate.py --checkpoint checkpoints/[pth_file_name] --output_dir eval_results
 ```
 
 ### Inference
 
 ```bash
 # For a single image
-python inference.py --checkpoint checkpoints/ganfingerprint_20250408_123456_best.pth --input path/to/image.jpg --output inference_results
+python inference.py --checkpoint checkpoints/[pth_file_name] --input path/to/image.jpg --output inference_results
 
 # For a directory of images
-python inference.py --checkpoint checkpoints/ganfingerprint_20250408_123456_best.pth --input path/to/images_dir --output inference_results --batch
+python inference.py --checkpoint checkpoints/[pth_file_name] --input path/to/images_dir --output inference_results --batch
 ```
 
 ## Reproducibility
@@ -187,6 +187,12 @@ The model is designed with reproducibility in mind:
 - Deterministic operations in PyTorch
 - Random state preservation in checkpoints
 - Deterministic data loading
+
+The dataset used to train the model is the 'deepfake and real images' dataset by Manjil Kariki.
+
+Link: https://www.kaggle.com/datasets/manjilkarki/deepfake-and-real-images
+
+This dataset provides a large dataset of real and deepfake images, split into train, test and validation sets, making it one of the best datasets to be used for deepfake classification models.
 
 As long as you use the same dataset and compatible library versions, you should get consistent results across different runs.
 
