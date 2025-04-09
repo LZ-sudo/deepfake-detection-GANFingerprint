@@ -49,6 +49,20 @@ deepfake_detector/
 - Python 3.7+
 - CUDA-compatible GPU (recommended)
 
+## Requirements
+
+This project requires the following dependencies:
+```
+torch>=1.8.0,<2.0.0
+torchvision>=0.9.0,<2.0.0
+numpy>=1.19.0
+matplotlib>=3.3.0
+scikit-learn>=0.24.0
+tqdm>=4.50.0
+Pillow>=8.0.0
+tensorboard>=2.4.0
+```
+
 ### Option 1: Using pip
 
 1. Clone the repository:
@@ -163,20 +177,6 @@ python inference.py --checkpoint checkpoints/ganfingerprint_20250408_123456_best
 
 # For a directory of images
 python inference.py --checkpoint checkpoints/ganfingerprint_20250408_123456_best.pth --input path/to/images_dir --output inference_results --batch
-```
-
-## Requirements
-
-This project requires the following dependencies:
-```
-torch>=1.8.0,<2.0.0
-torchvision>=0.9.0,<2.0.0
-numpy>=1.19.0
-matplotlib>=3.3.0
-scikit-learn>=0.24.0
-tqdm>=4.50.0
-Pillow>=8.0.0
-tensorboard>=2.4.0
 ```
 
 ## Reproducibility
