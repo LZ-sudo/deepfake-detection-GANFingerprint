@@ -8,7 +8,6 @@ A deep learning model for detecting GAN-generated deepfake images by analyzing s
 - Frequency domain analysis to detect GAN fingerprint artifacts
 - Self-attention mechanism for focusing on discriminative regions
 - Highly reproducible results with deterministic implementation
-- State-of-the-art performance on deepfake detection benchmarks
 
 ## Model Architecture
 
