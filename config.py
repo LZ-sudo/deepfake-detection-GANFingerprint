@@ -17,11 +17,11 @@ EMBEDDING_DIM = 512  # Dimension of fingerprint embedding
 DROPOUT_RATE = 0.4  # Dropout for regularization
 
 # Training parameters
-BATCH_SIZE = 64  # Adjust based on GPU memory
+BATCH_SIZE = 16  # Adjust based on GPU memory
 NUM_WORKERS = 4  # Number of data loading workers
-LEARNING_RATE = 3e-4
+LEARNING_RATE = 5e-5
 WEIGHT_DECAY = 1e-5
-NUM_EPOCHS = 30
+NUM_EPOCHS = 20
 EARLY_STOPPING_PATIENCE = 5
 WARMUP_EPOCHS = 2
 

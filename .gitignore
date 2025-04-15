@@ -5,3 +5,4 @@ __pycache__
 logs/
 experiment_logs/
 inference_results/
+checkpoints/ 
