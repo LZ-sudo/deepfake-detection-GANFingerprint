@@ -31,6 +31,7 @@ USE_AMP = True  # Set to True to use automatic mixed precision
 # Checkpoints and logging
 CHECKPOINT_DIR = "checkpoints"
 LOG_DIR = "logs"
+EXPERIMENT_LOGS = "experiment_logs"
 EXPERIMENT_NAME = f"ganfingerprint_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 # Hardware settings

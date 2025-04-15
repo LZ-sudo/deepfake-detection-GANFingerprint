@@ -44,11 +44,7 @@ def train(args):
     os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(config.LOG_DIR, exist_ok=True)
     # os.makedirs(config.EXPERIMENT_LOGS, exist_ok=True)
-
-    print(f"Directory exists (CHECKPOINT_DIR): {os.path.exists(config.CHECKPOINT_DIR)}")
-    print(f"Directory exists (LOG_DIR): {os.path.exists(config.LOG_DIR)}")
-    print(f"Directory exists (EXPERIMENT_LOGS): {os.path.exists(config.EXPERIMENT_LOGS)}")
-    
+ 
     # Get data loaders
     train_loader, val_loader, _ = get_dataloaders(seed=config.SEED)
     

@@ -1,0 +1,7 @@
+#Ignore virtual environments that are created
+myenv/
+data/
+__pycache__
+logs/
+experiment_logs/
+inference_results/
