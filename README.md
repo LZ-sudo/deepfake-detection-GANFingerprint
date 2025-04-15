@@ -49,6 +49,7 @@ deepfake_detector/
 │   ├── visualization.py      # Plotting and visualization tools
 │   ├── metrics.py            # Performance metrics calculation
 │   ├── augmentations.py      # Advanced augmentation techniques
+|   ├── experiment.py         # Logging of information when training model
 ├── checkpoints/              # Directory for saved model checkpoints
 ├── logs/                     # TensorBoard logs and training records
 ```
