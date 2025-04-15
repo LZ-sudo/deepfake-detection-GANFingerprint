@@ -18,18 +18,7 @@ from models import FingerprintNet
 from utils.reproducibility import set_all_seeds
 
 
-def predict_image(model, image_path, transform):
-    """
-    Make a prediction on a single image.
-    
-    Args:
-        model: The trained model
-        image_path: Path to the image file
-        transform: Image transforms to apply
-    
-    Returns:
-        tuple: (prediction probability, class label)
-    """
+def predict_image_calibrated(model, image_path, transform):
     # Load and preprocess the image
     image = Image.open(image_path).convert('RGB')
     image_tensor = transform(image).unsqueeze(0).to(config.DEVICE)
@@ -40,11 +29,24 @@ def predict_image(model, image_path, transform):
         with autocast(device_type='cuda', dtype=torch.float16):
             output = model(image_tensor)
     
-    # Get probability and class
-    prob = torch.sigmoid(output).item()
-    pred_class = "Real" if prob >= 0.5 else "Fake"
+    # Get raw logit 
+    raw_logit = output.item()
     
-    return prob, pred_class
+    # Original probability
+    orig_prob = torch.sigmoid(output).item()
+    
+    # Apply calibration for fake images
+    if orig_prob < 0.5:  # Predicted as fake
+        # Map [0, 0.5] range to [1.0, 0] - this inverts the scale for fake images
+        calibrated_prob = 1.0 - (2.0 * orig_prob)
+    else:  # Predicted as real
+        calibrated_prob = orig_prob
+    
+    pred_class = "Real" if orig_prob >= 0.5 else "Fake"
+    
+    print(f"Raw logit: {raw_logit:.6f}, Original prob: {orig_prob:.6f}, Calibrated: {calibrated_prob:.6f}")
+    
+    return calibrated_prob, pred_class
 
 
 def visualize_result(image_path, prob, pred_class, output_path=None):
@@ -113,7 +115,7 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
     
     # Single image mode
     if not batch_mode:
-        prob, pred_class = predict_image(model, input_path, transform)
+        prob, pred_class = predict_image_calibrated(model, input_path, transform)
         print(f"Prediction for {os.path.basename(input_path)}: {pred_class} (Confidence: {prob:.4f})")
         
         if output_dir:
@@ -134,7 +136,7 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
         # Process each image
         results = []
         for img_path in tqdm(image_files, desc="Processing images"):
-            prob, pred_class = predict_image(model, img_path, transform)
+            prob, pred_class = predict_image_calibrated(model, img_path, transform)
             results.append((img_path, prob, pred_class))
             
             # Save visualization if output directory is specified

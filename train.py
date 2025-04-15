@@ -17,6 +17,7 @@ from data_loader import get_dataloaders, get_dataset_stats
 from models import FingerprintNet
 from utils.metrics import compute_metrics
 from utils.reproducibility import set_all_seeds, get_random_state
+from utils.experiment import ExperimentTracker
 
 
 def get_lr_scheduler(optimizer, warmup_epochs, total_epochs):
@@ -37,20 +38,47 @@ def train(args):
     """
     #Set seeds at beginning of training
     set_all_seeds(config.SEED)
-    
+
+
     # Create directories if they don't exist
     os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(config.LOG_DIR, exist_ok=True)
+    # os.makedirs(config.EXPERIMENT_LOGS, exist_ok=True)
+
+    print(f"Directory exists (CHECKPOINT_DIR): {os.path.exists(config.CHECKPOINT_DIR)}")
+    print(f"Directory exists (LOG_DIR): {os.path.exists(config.LOG_DIR)}")
+    print(f"Directory exists (EXPERIMENT_LOGS): {os.path.exists(config.EXPERIMENT_LOGS)}")
     
     # Get data loaders
     train_loader, val_loader, _ = get_dataloaders(seed=config.SEED)
     
+    config_log = {
+        'BACKBONE': config.BACKBONE,
+        'EMBEDDING_DIM': config.EMBEDDING_DIM,
+        'DROPOUT_RATE': config.DROPOUT_RATE,
+        'BATCH_SIZE': config.BATCH_SIZE,
+        'LEARNING_RATE': config.LEARNING_RATE,
+        'SEED': config.SEED,
+        'NUM_EPOCHS': config.NUM_EPOCHS,
+        'DEVICE': str(config.DEVICE),  # Convert torch.device to string
+        'INPUT_SIZE': config.INPUT_SIZE,
+        'USE_AMP': config.USE_AMP,
+    }
+
+    # Create experiment tracker
+    tracker = ExperimentTracker(config.EXPERIMENT_NAME, base_dir=config.EXPERIMENT_LOGS)
+    tracker.log("Starting training with configuration:")
+    tracker.save_config(config_log)
+    tracker.log(f"Using device: {config.DEVICE}")
+
     # Print dataset stats
     get_dataset_stats()
+    tracker.log(f"Dataset loaded successfully")
     
     # Initialize model
     model = FingerprintNet(backbone=config.BACKBONE)
     model = model.to(config.DEVICE)
+    tracker.log(f"Model initialized with backbone: {config.BACKBONE}")
     
     # Loss function
     criterion = nn.BCEWithLogitsLoss()
@@ -84,16 +112,16 @@ def train(args):
     best_combined_score = 0.0
     
     metric_weights = {
-        'accuracy': 0.02,
-        'precision': 0.00, 
-        'recall': 0.96,      # Higher weight for recall
-        'f1': 0.02,
-        'auc': 0.00
+        'accuracy': 0.10,
+        'precision': 0.05, 
+        'recall': 0.70,      # Higher weight for recall
+        'f1': 0.10,
+        'auc': 0.05
     }
 
     # Check if resuming from checkpoint
     if args.resume_checkpoint:
-        print(f"Resuming training from checkpoint: {args.resume_checkpoint}")
+        tracker.log(f"Resuming training from checkpoint: {args.resume_checkpoint}")
         checkpoint = torch.load(args.resume_checkpoint, map_location=config.DEVICE, weights_only=False)
         
         # Load model and optimizer states
@@ -104,16 +132,16 @@ def train(args):
         if 'scheduler_state_dict' in checkpoint and checkpoint['scheduler_state_dict'] is not None:
             try:
                 scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-                print("Resumed scheduler state successfully")
+                tracker.log("Resumed scheduler state successfully")
             except Exception as e:
-                print(f"Warning: Could not load scheduler state: {e}")
-                print("Creating new scheduler from scratch")
+                tracker.log(f"Warning: Could not load scheduler state: {e}")
+                tracker.log("Creating new scheduler from scratch")
         
         # Set training state
         start_epoch = checkpoint['epoch'] + 1  # Resume from next epoch
         best_val_auc = checkpoint.get('val_auc', 0.0)
         
-        print(f"Resuming from epoch {start_epoch}, best val AUC so far: {best_val_auc:.4f}")
+        tracker.log(f"Resuming from epoch {start_epoch}, best val AUC so far: {best_val_auc:.4f}")
 
 
     # Training loop
@@ -227,14 +255,27 @@ def train(args):
         combined_score = sum(metric_weights[metric] * val_metrics[metric] 
                          for metric in metric_weights.keys())
         
-        # Print metrics including the combined score
-        print(f"Val Loss: {val_loss:.4f}, Accuracy: {val_metrics['accuracy']:.4f}, "
-          f"Precision: {val_metrics['precision']:.4f}, Recall: {val_metrics['recall']:.4f}, "
-          f"F1: {val_metrics['f1']:.4f}, AUC: {val_metrics['auc']:.4f}")
-        print(f"Combined Score: {combined_score:.4f} (Weights: Accuracy={metric_weights['accuracy']}, "
+        # Log epoch results with experiment tracker
+        epoch_time = time.time() - epoch_start_time
+        epoch_results = {
+            'epoch': epoch + 1,
+            'train_loss': float(train_loss),
+            'val_loss': float(val_loss),
+            'train_metrics': {k: float(v) for k, v in train_metrics.items()},
+            'val_metrics': {k: float(v) for k, v in val_metrics.items()},
+            'combined_score': float(combined_score),
+            'learning_rate': float(scheduler.get_last_lr()[0]),
+            'epoch_time_seconds': float(epoch_time)
+        }
+        tracker.save_results(epoch_results)
+        
+        # Log summary to experiment tracker
+        tracker.log(f"Epoch {epoch+1}/{config.NUM_EPOCHS} completed in {epoch_time:.2f}s")
+        tracker.log(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+        tracker.log(f"Combined Score: {combined_score:.4f} (Weights: Accuracy={metric_weights['accuracy']}, "
             f"Precision={metric_weights['precision']}, Recall={metric_weights['recall']}, "
             f"F1={metric_weights['f1']}, AUC={metric_weights['auc']})")
-        
+
         config_dict = {
             'BACKBONE': config.BACKBONE,
             'EMBEDDING_DIM': config.EMBEDDING_DIM,
@@ -263,10 +304,10 @@ def train(args):
                 'random_state': get_random_state(),
                 'config': config_dict
             }, checkpoint_path)
-            print(f"New best model (Combined Score: {best_combined_score:.4f})")
+            tracker.log(f"New best model saved (Combined Score: {best_combined_score:.4f})")
         else:
             patience_counter += 1
-            print(f"No improvement in combined score. Patience: {patience_counter}/{config.EARLY_STOPPING_PATIENCE}")
+            tracker.log(f"No improvement in combined score. Patience: {patience_counter}/{config.EARLY_STOPPING_PATIENCE}")
 
         # Save regular checkpoint
         if (epoch + 1) % 5 == 0 or epoch == config.NUM_EPOCHS - 1:
@@ -281,16 +322,27 @@ def train(args):
                 'random_state': get_random_state(),
                 # Don't save config in regular checkpoints to avoid issues
             }, checkpoint_path)
-            print(f"Saved checkpoint to {checkpoint_path}")
+            tracker.log(f"Saved checkpoint to {checkpoint_path}")
         
         # Early stopping
         if patience_counter >= config.EARLY_STOPPING_PATIENCE:
-            print(f"Early stopping triggered after {epoch+1} epochs")
+            tracker.log(f"Early stopping triggered after {epoch+1} epochs")
             break
     
     writer.close()
-    print(f"Training completed. Best validation AUC: {best_val_auc:.4f}")
+    tracker.log(f"Training completed. Best combined score: {best_combined_score:.4f}")
 
+    # Save final summary
+    final_results = {
+        'best_combined_score': float(best_combined_score),
+        'total_epochs_trained': epoch + 1,
+        'early_stopped': patience_counter >= config.EARLY_STOPPING_PATIENCE,
+        'final_learning_rate': float(scheduler.get_last_lr()[0]),
+        'metric_weights': metric_weights
+    }
+    tracker.save_results(final_results)
+
+    return model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train GANFingerprint model for deepfake detection')
