@@ -43,6 +43,7 @@ deepfake_detector/
 ├── train.py                  # Training script
 ├── evaluate.py               # Evaluation script
 ├── inference.py              # Inference on new images
+├── GANFingerprint.ipynb      # Jupyter notebook file with step-by-step guidance on how to run the model
 ├── utils/
 │   ├── __init__.py           # Utilities module initialization
 │   ├── reproducibility.py    # Random seed and reproducibility utilities
@@ -52,29 +53,39 @@ deepfake_detector/
 |   ├── experiment.py         # Logging of information when training model
 ├── checkpoints/              # Directory for saved model checkpoints
 ├── logs/                     # TensorBoard logs and training records
+├── requirements.txt          # Contains all required dependencies 
 ```
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.7+
-- CUDA-compatible GPU (recommended)
+- Python 3.7+ (model tested on Python 3.12.4)
+- CUDA-compatible GPU (model tested on Cuda 11.8)
+**cpu is not recommended for this model, as it would take very long to train**
 
 ## Requirements
 
-This project requires the following dependencies:
+This project requires the following dependencies, saved as requirements.txt:
 ```
-#Can be saved as requirements.txt
-torch>=1.8.0,<2.0.0
-torchvision>=0.9.0,<2.0.0
-numpy>=1.19.0
-matplotlib>=3.3.0
-scikit-learn>=0.24.0
-tqdm>=4.50.0
-Pillow>=8.0.0
-tensorboard>=2.4.0
+torch>=1.13.0
+torchvision>=0.14.0
+torchaudio>=0.13.0
+numpy>=1.20.0
+matplotlib>=3.5.0
+scikit-learn>=1.0.0
+Pillow>=9.0.0
+tqdm>=4.62.0
+pandas>=1.3.0
+tensorboard>=2.10.0
+protobuf>=3.19.0,<4.0.0
 ```
+
+## How to run the model
+
+The Jupyter Notebook file **GANFingerprint.ipynb** is created with instructions and executable cells, making the process simple to follow.
+
+However, it is also possible to run the model through bash commands. The instructions below cover the full process.
 
 ### Option 1: Using pip
 
@@ -140,10 +151,10 @@ Review and update `config.py` to match your environment:
 DATA_ROOT = "data"  # Path to your dataset directory
 INPUT_SIZE = 256    # Input image size
 BACKBONE = "resnet34"  # Feature extractor backbone
-BATCH_SIZE = 64     # Adjust based on your GPU memory
+BATCH_SIZE = 16     # Adjust based on your GPU memory
 NUM_WORKERS = 4     # Number of data loading workers
-LEARNING_RATE = 3e-4
-NUM_EPOCHS = 30
+LEARNING_RATE = 5e-5
+NUM_EPOCHS = 20
 DEVICE = "cuda"     # Use "cuda" for GPU, "cpu" for CPU
 SEED = 42           # Random seed for reproducibility
 ```
