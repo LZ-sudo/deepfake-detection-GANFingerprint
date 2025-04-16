@@ -18,7 +18,7 @@ DROPOUT_RATE = 0.4  # Dropout for regularization
 
 # Training parameters
 BATCH_SIZE = 16  # Adjust based on GPU memory
-NUM_WORKERS = 4  # Number of data loading workers
+NUM_WORKERS = 10  # Number of data loading workers
 LEARNING_RATE = 5e-5
 WEIGHT_DECAY = 1e-5
 NUM_EPOCHS = 20

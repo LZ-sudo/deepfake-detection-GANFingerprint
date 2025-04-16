@@ -49,7 +49,79 @@ def predict_image_calibrated(model, image_path, transform):
     return calibrated_prob, pred_class
 
 
-def visualize_result(image_path, prob, pred_class, output_path=None):
+def extract_true_label(filename):
+    """
+    Extract the true label from the image filename.
+    Assumes filenames contain 'real' or 'fake' to indicate the true class.
+    
+    Args:
+        filename: The filename to extract the label from
+        
+    Returns:
+        "Real" or "Fake" based on the filename, or "Unknown" if can't determine
+    """
+    basename = os.path.basename(filename).lower()
+    
+    if 'real' in basename:
+        return "Real"
+    elif 'fake' in basename:
+        return "Fake"
+    else:
+        return "Unknown"
+
+
+def calculate_metrics(true_labels, pred_labels):
+    """
+    Calculate accuracy, precision, recall and F1 score.
+    
+    Args:
+        true_labels: List of true labels ("Real" or "Fake")
+        pred_labels: List of predicted labels ("Real" or "Fake")
+        
+    Returns:
+        Dictionary with accuracy, precision, recall and F1 metrics
+    """
+    # Count total predictions
+    total = len(true_labels)
+    
+    # Count correct predictions
+    correct = sum(1 for true, pred in zip(true_labels, pred_labels) if true == pred)
+    
+    # For "Real" class metrics
+    true_positives = sum(1 for true, pred in zip(true_labels, pred_labels) 
+                        if true == "Real" and pred == "Real")
+    false_positives = sum(1 for true, pred in zip(true_labels, pred_labels) 
+                         if true == "Fake" and pred == "Real")
+    false_negatives = sum(1 for true, pred in zip(true_labels, pred_labels) 
+                         if true == "Real" and pred == "Fake")
+    true_negatives = sum(1 for true, pred in zip(true_labels, pred_labels) 
+                        if true == "Fake" and pred == "Fake")
+    
+    # Calculate metrics
+    accuracy = correct / total if total > 0 else 0
+    
+    # Precision for "Real" class
+    precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+    
+    # Recall for "Real" class
+    recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
+    
+    # F1 score
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+    
+    return {
+        "accuracy": accuracy,
+        "precision": precision, 
+        "recall": recall,
+        "f1": f1,
+        "true_positives": true_positives,
+        "false_positives": false_positives,
+        "true_negatives": true_negatives,
+        "false_negatives": false_negatives
+    }
+
+
+def visualize_result(image_path, prob, pred_class, true_class=None, output_path=None):
     """
     Visualize the prediction result.
     
@@ -57,6 +129,7 @@ def visualize_result(image_path, prob, pred_class, output_path=None):
         image_path: Path to the image
         prob: Prediction probability
         pred_class: Predicted class
+        true_class: True class (optional)
         output_path: Path to save the visualization (optional)
     """
     # Load image
@@ -71,7 +144,15 @@ def visualize_result(image_path, prob, pred_class, output_path=None):
     
     # Add prediction text
     color = 'green' if pred_class == 'Real' else 'red'
-    plt.title(f"Prediction: {pred_class} ({prob:.4f})", color=color, fontsize=16)
+    
+    # Different title based on whether we have the true class
+    if true_class and true_class != "Unknown":
+        match_status = "✓" if pred_class == true_class else "✗"
+        plt.title(f"Pred: {pred_class} ({prob:.4f}) | True: {true_class} {match_status}", 
+                 color='green' if pred_class == true_class else 'red', 
+                 fontsize=14)
+    else:
+        plt.title(f"Prediction: {pred_class} ({prob:.4f})", color=color, fontsize=16)
     
     # Save or show
     if output_path:
@@ -116,16 +197,30 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
     # Single image mode
     if not batch_mode:
         prob, pred_class = predict_image_calibrated(model, input_path, transform)
+        true_class = extract_true_label(input_path)
         print(f"Prediction for {os.path.basename(input_path)}: {pred_class} (Confidence: {prob:.4f})")
+        if true_class != "Unknown":
+            correct = pred_class == true_class
+            print(f"True class: {true_class} | Prediction {'correct' if correct else 'incorrect'}")
         
         if output_dir:
             output_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_path))[0]}_pred.png")
-            visualize_result(input_path, prob, pred_class, output_path)
+            visualize_result(input_path, prob, pred_class, true_class, output_path)
         else:
-            visualize_result(input_path, prob, pred_class)
+            visualize_result(input_path, prob, pred_class, true_class)
     
     # Batch mode (directory of images)
     else:
+        # Create a results folder named after the input folder
+        input_folder_name = os.path.basename(os.path.normpath(input_path))
+        if output_dir:
+            # Create a folder named input_folder_name + "_results"
+            results_folder_name = f"{input_folder_name}_results"
+            batch_output_dir = os.path.join(output_dir, results_folder_name)
+            os.makedirs(batch_output_dir, exist_ok=True)
+        else:
+            batch_output_dir = None
+        
         # Get all image files
         image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
         image_files = []
@@ -135,36 +230,82 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
         
         # Process each image
         results = []
-        for img_path in tqdm(image_files, desc="Processing images"):
+        for img_path in tqdm(image_files, desc=f"Processing images from {input_folder_name}"):
             prob, pred_class = predict_image_calibrated(model, img_path, transform)
-            results.append((img_path, prob, pred_class))
+            true_class = extract_true_label(img_path)
+            results.append((img_path, prob, pred_class, true_class))
             
             # Save visualization if output directory is specified
-            if output_dir:
+            if batch_output_dir:
                 output_path = os.path.join(
-                    output_dir, 
+                    batch_output_dir, 
                     f"{os.path.splitext(os.path.basename(img_path))[0]}_pred.png"
                 )
-                visualize_result(img_path, prob, pred_class, output_path)
+                visualize_result(img_path, prob, pred_class, true_class, output_path)
+        
+        # Calculate metrics if true labels are available
+        true_labels = [true_class for _, _, _, true_class in results if true_class != "Unknown"]
+        pred_labels = [pred_class for _, _, pred_class, true_class in results if true_class != "Unknown"]
+        
+        metrics = None
+        if true_labels and len(true_labels) == len(pred_labels):
+            metrics = calculate_metrics(true_labels, pred_labels)
         
         # Save results to CSV
-        if output_dir:
+        if batch_output_dir:
             import csv
-            csv_path = os.path.join(output_dir, "inference_results.csv")
+            csv_path = os.path.join(batch_output_dir, "inference_results.csv")
             with open(csv_path, 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['Image', 'Probability', 'Prediction'])
-                for img_path, prob, pred_class in results:
-                    writer.writerow([os.path.basename(img_path), f"{prob:.4f}", pred_class])
+                
+                # Include true label in the header if available
+                if any(true_class != "Unknown" for _, _, _, true_class in results):
+                    writer.writerow(['Image', 'Probability', 'Prediction', 'True Label', 'Correct'])
+                    for img_path, prob, pred_class, true_class in results:
+                        correct = "Yes" if pred_class == true_class else "No" if true_class != "Unknown" else "-"
+                        writer.writerow([os.path.basename(img_path), f"{prob:.4f}", pred_class, 
+                                        true_class if true_class != "Unknown" else "-", correct])
+                else:
+                    writer.writerow(['Image', 'Probability', 'Prediction'])
+                    for img_path, prob, pred_class, _ in results:
+                        writer.writerow([os.path.basename(img_path), f"{prob:.4f}", pred_class])
+            
+            # Also save metrics to a separate CSV if available
+            if metrics:
+                metrics_path = os.path.join(batch_output_dir, "performance_metrics.csv")
+                with open(metrics_path, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['Metric', 'Value'])
+                    writer.writerow(['Accuracy', f"{metrics['accuracy']:.4f}"])
+                    writer.writerow(['Precision', f"{metrics['precision']:.4f}"])
+                    writer.writerow(['Recall', f"{metrics['recall']:.4f}"])
+                    writer.writerow(['F1 Score', f"{metrics['f1']:.4f}"])
+                    writer.writerow(['True Positives', metrics['true_positives']])
+                    writer.writerow(['False Positives', metrics['false_positives']])
+                    writer.writerow(['True Negatives', metrics['true_negatives']])
+                    writer.writerow(['False Negatives', metrics['false_negatives']])
             
             print(f"Results saved to {csv_path}")
         
         # Print summary
-        real_count = sum(1 for _, _, pred in results if pred == "Real")
+        real_count = sum(1 for _, _, pred, _ in results if pred == "Real")
         fake_count = len(results) - real_count
-        print(f"\nProcessed {len(results)} images")
+        print(f"\nProcessed {len(results)} images from {input_folder_name}")
+        print(f"Results saved to {batch_output_dir}")
         print(f"Predicted Real: {real_count} ({real_count/len(results)*100:.1f}%)")
         print(f"Predicted Fake: {fake_count} ({fake_count/len(results)*100:.1f}%)")
+        
+        # Print metrics if available
+        if metrics:
+            print("\nPerformance Metrics:")
+            print(f"Accuracy: {metrics['accuracy']:.4f}")
+            print(f"Precision: {metrics['precision']:.4f}")
+            print(f"Recall: {metrics['recall']:.4f}")
+            print(f"F1 Score: {metrics['f1']:.4f}")
+            print(f"Confusion Matrix:")
+            print(f"                  | Predicted Real | Predicted Fake |")
+            print(f"Actual Real      | {metrics['true_positives']:14d} | {metrics['false_negatives']:14d} |")
+            print(f"Actual Fake      | {metrics['false_positives']:14d} | {metrics['true_negatives']:14d} |")
 
 
 if __name__ == "__main__":
