@@ -235,6 +235,22 @@ As long as you use the same dataset and compatible library versions, you should 
    - If you encounter errors with newer PyTorch versions, try downgrading to 1.8.0-1.9.0
    - For any missing function errors, check the library documentation for version compatibility
 
+## Development and Testing Device, IDE
+
+This model was developed and tested on the **Lenovo Legion 5 Pro (2022)** laptop with the following specs:
+
+### Computer Specs
+**12th Gen Intel(R) Core(TM) i7-12700H   2.30 GHz**
+
+**32.0GB of DDR5 RAM**
+
+**Nvidia RTX 3070Ti GPU (mobile)**
+
+### OS and IDE information
+**OS: Windows 11**
+
+**IDE: Visual Studio Code Version 1.97.0**
+
 ## Citation
 
 If you use this code in your research, please cite my project:
