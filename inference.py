@@ -1,5 +1,5 @@
 """
-Inference script for applying the GANFingerprint model on new images.
+Inference script for applying the GANFingerprint model on new images with Grad-CAM visualization.
 """
 import os
 import argparse
@@ -16,9 +16,21 @@ import torchvision.transforms as transforms
 import config
 from models import FingerprintNet
 from utils.reproducibility import set_all_seeds
+from utils.gradcam import visualize_gradcam
 
 
 def predict_image_calibrated(model, image_path, transform):
+    """
+    Make a prediction on a single image with calibrated probability.
+    
+    Args:
+        model: The FingerprintNet model
+        image_path: Path to the image file
+        transform: Image transformation pipeline
+        
+    Returns:
+        Tuple of (calibrated probability, predicted class)
+    """
     # Load and preprocess the image
     image = Image.open(image_path).convert('RGB')
     image_tensor = transform(image).unsqueeze(0).to(config.DEVICE)
@@ -162,7 +174,7 @@ def visualize_result(image_path, prob, pred_class, true_class=None, output_path=
         plt.show()
 
 
-def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False):
+def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False, use_gradcam=False):
     """
     Run inference on one or multiple images.
     
@@ -171,6 +183,7 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
         input_path: Path to an image or directory of images
         output_dir: Directory to save results
         batch_mode: Whether to process a directory of images
+        use_gradcam: Whether to generate Grad-CAM visualizations
     """
     # Set seeds for reproducibility
     set_all_seeds(config.SEED)
@@ -196,18 +209,121 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
     
     # Single image mode
     if not batch_mode:
-        prob, pred_class = predict_image_calibrated(model, input_path, transform)
         true_class = extract_true_label(input_path)
+        
+        if use_gradcam:
+            # Load and preprocess the image for Grad-CAM
+            orig_image = Image.open(input_path).convert('RGB')
+            image_tensor = transform(orig_image).to(config.DEVICE)
+            
+            # Get target layer for Grad-CAM
+            from utils.gradcam import get_gradcam_layer, GradCAM, generate_gradcam
+            target_layer = get_gradcam_layer(model)
+            
+            # Generate Grad-CAM visualization
+            raw_logit, heatmap, superimposed = generate_gradcam(model, image_tensor, orig_image)
+            
+            # Calculate prediction
+            orig_prob = torch.sigmoid(torch.tensor(raw_logit)).item()
+            if orig_prob < 0.5:  # Predicted as fake
+                calibrated_prob = 1.0 - (2.0 * orig_prob)
+            else:  # Predicted as real
+                calibrated_prob = orig_prob
+            
+            pred_class = "Real" if orig_prob >= 0.5 else "Fake"
+            
+            # Create and save visualization
+            if output_dir:
+                output_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_path))[0]}_gradcam.png")
+                
+                # Create visualization with improved layout
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+                fig.subplots_adjust(top=0.85)  # Make more room for title
+                
+                # Original image
+                ax1.imshow(orig_image)
+                ax1.set_title("Original Image", fontsize=14, pad=10)
+                ax1.axis('off')
+                
+                # Grad-CAM visualization
+                ax2.imshow(superimposed)
+                
+                # Set title color based on prediction
+                title_color = 'green' if pred_class == 'Real' else 'red'
+                ax2.set_title(f"Grad-CAM: {pred_class} ({calibrated_prob:.4f})", 
+                            fontsize=14, color=title_color, pad=10)
+                ax2.axis('off')
+                
+                # Add information about prediction above the figures
+                if true_class and true_class != "Unknown":
+                    correct = pred_class == true_class
+                    result_color = 'green' if correct else 'red'
+                    
+                    # Create main title with appropriate color and check/x mark
+                    check_mark = "✓" if correct else "✗"
+                    title = f"Prediction: {pred_class} ({calibrated_prob:.4f})\nTrue Class: {true_class} ({check_mark})"
+                    plt.suptitle(title, fontsize=16, y=0.98, color=result_color)
+                else:
+                    plt.suptitle(f"Prediction: {pred_class} ({calibrated_prob:.4f})", 
+                               fontsize=16, y=0.98, color=title_color)
+                
+                # Add extra space between plots
+                plt.tight_layout(pad=3.0)
+                
+                # Save visualization
+                plt.savefig(output_path, bbox_inches='tight', dpi=150)
+                plt.close()
+            else:
+                # Display visualization with improved layout
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+                fig.subplots_adjust(top=0.85)  # Make more room for title
+                
+                # Original image
+                ax1.imshow(orig_image)
+                ax1.set_title("Original Image", fontsize=14, pad=10)
+                ax1.axis('off')
+                
+                # Grad-CAM visualization
+                ax2.imshow(superimposed)
+                
+                # Set title color based on prediction
+                title_color = 'green' if pred_class == 'Real' else 'red'
+                ax2.set_title(f"Grad-CAM: {pred_class} ({calibrated_prob:.4f})", 
+                            fontsize=14, color=title_color, pad=10)
+                ax2.axis('off')
+                
+                # Add information about prediction above the figures
+                if true_class and true_class != "Unknown":
+                    correct = pred_class == true_class
+                    result_color = 'green' if correct else 'red'
+                    
+                    # Create main title with appropriate color and check/x mark
+                    check_mark = "✓" if correct else "✗"
+                    title = f"Prediction: {pred_class} ({calibrated_prob:.4f})\nTrue Class: {true_class} ({check_mark})"
+                    plt.suptitle(title, fontsize=16, y=0.98, color=result_color)
+                else:
+                    plt.suptitle(f"Prediction: {pred_class} ({calibrated_prob:.4f})", 
+                               fontsize=16, y=0.98, color=title_color)
+                
+                # Add extra space between plots
+                plt.tight_layout(pad=3.0)
+                plt.show()
+                
+            prob = calibrated_prob
+        else:
+            # Use standard visualization
+            prob, pred_class = predict_image_calibrated(model, input_path, transform)
+            
+            if output_dir:
+                output_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_path))[0]}_pred.png")
+                visualize_result(input_path, prob, pred_class, true_class, output_path)
+            else:
+                visualize_result(input_path, prob, pred_class, true_class)
+        
         print(f"Prediction for {os.path.basename(input_path)}: {pred_class} (Confidence: {prob:.4f})")
         if true_class != "Unknown":
             correct = pred_class == true_class
             print(f"True class: {true_class} | Prediction {'correct' if correct else 'incorrect'}")
-        
-        if output_dir:
-            output_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_path))[0]}_pred.png")
-            visualize_result(input_path, prob, pred_class, true_class, output_path)
-        else:
-            visualize_result(input_path, prob, pred_class, true_class)
     
     # Batch mode (directory of images)
     else:
@@ -218,8 +334,14 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
             results_folder_name = f"{input_folder_name}_results"
             batch_output_dir = os.path.join(output_dir, results_folder_name)
             os.makedirs(batch_output_dir, exist_ok=True)
+            
+            # Create a subfolder for GradCAM visualizations if needed
+            if use_gradcam:
+                gradcam_dir = os.path.join(batch_output_dir, "gradcam")
+                os.makedirs(gradcam_dir, exist_ok=True)
         else:
             batch_output_dir = None
+            gradcam_dir = None
         
         # Get all image files
         image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
@@ -231,17 +353,88 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
         # Process each image
         results = []
         for img_path in tqdm(image_files, desc=f"Processing images from {input_folder_name}"):
-            prob, pred_class = predict_image_calibrated(model, img_path, transform)
             true_class = extract_true_label(img_path)
-            results.append((img_path, prob, pred_class, true_class))
             
-            # Save visualization if output directory is specified
-            if batch_output_dir:
-                output_path = os.path.join(
-                    batch_output_dir, 
-                    f"{os.path.splitext(os.path.basename(img_path))[0]}_pred.png"
-                )
-                visualize_result(img_path, prob, pred_class, true_class, output_path)
+            if use_gradcam:
+                # Load and preprocess the image for Grad-CAM
+                orig_image = Image.open(img_path).convert('RGB')
+                image_tensor = transform(orig_image).to(config.DEVICE)
+                
+                # Get target layer for Grad-CAM
+                from utils.gradcam import get_gradcam_layer, GradCAM, generate_gradcam
+                target_layer = get_gradcam_layer(model)
+                
+                # Generate Grad-CAM visualization
+                raw_logit, heatmap, superimposed = generate_gradcam(model, image_tensor, orig_image)
+                
+                # Calculate prediction
+                orig_prob = torch.sigmoid(torch.tensor(raw_logit)).item()
+                if orig_prob < 0.5:  # Predicted as fake
+                    calibrated_prob = 1.0 - (2.0 * orig_prob)
+                else:  # Predicted as real
+                    calibrated_prob = orig_prob
+                
+                pred_class = "Real" if orig_prob >= 0.5 else "Fake"
+                
+                # Create and save visualization with improved layout
+                if batch_output_dir:
+                    output_path = os.path.join(
+                        gradcam_dir, 
+                        f"{os.path.splitext(os.path.basename(img_path))[0]}_gradcam.png"
+                    )
+                    
+                    # Create visualization with improved layout
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+                    fig.subplots_adjust(top=0.85)  # Make more room for title
+                    
+                    # Original image
+                    ax1.imshow(orig_image)
+                    ax1.set_title("Original Image", fontsize=14, pad=10)
+                    ax1.axis('off')
+                    
+                    # Grad-CAM visualization
+                    ax2.imshow(superimposed)
+                    
+                    # Set title color based on prediction
+                    title_color = 'green' if pred_class == 'Real' else 'red'
+                    ax2.set_title(f"Grad-CAM: {pred_class} ({calibrated_prob:.4f})", 
+                                fontsize=14, color=title_color, pad=10)
+                    ax2.axis('off')
+                    
+                    # Add information about prediction above the figures
+                    if true_class and true_class != "Unknown":
+                        correct = pred_class == true_class
+                        result_color = 'green' if correct else 'red'
+                        
+                        # Create main title with appropriate color and check/x mark
+                        check_mark = "✓" if correct else "✗"
+                        title = f"Prediction: {pred_class} ({calibrated_prob:.4f})\nTrue Class: {true_class} ({check_mark})"
+                        plt.suptitle(title, fontsize=16, y=0.98, color=result_color)
+                    else:
+                        plt.suptitle(f"Prediction: {pred_class} ({calibrated_prob:.4f})", 
+                                   fontsize=16, y=0.98, color=title_color)
+                    
+                    # Add extra space between plots
+                    plt.tight_layout(pad=3.0)
+                    
+                    # Save visualization
+                    plt.savefig(output_path, bbox_inches='tight', dpi=150)
+                    plt.close()
+                
+                prob = calibrated_prob
+            else:
+                # Use standard inference
+                prob, pred_class = predict_image_calibrated(model, img_path, transform)
+                
+                # Save visualization if output directory is specified
+                if batch_output_dir:
+                    output_path = os.path.join(
+                        batch_output_dir, 
+                        f"{os.path.splitext(os.path.basename(img_path))[0]}_pred.png"
+                    )
+                    visualize_result(img_path, prob, pred_class, true_class, output_path)
+            
+            results.append((img_path, prob, pred_class, true_class))
         
         # Calculate metrics if true labels are available
         true_labels = [true_class for _, _, _, true_class in results if true_class != "Unknown"]
@@ -291,7 +484,8 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
         real_count = sum(1 for _, _, pred, _ in results if pred == "Real")
         fake_count = len(results) - real_count
         print(f"\nProcessed {len(results)} images from {input_folder_name}")
-        print(f"Results saved to {batch_output_dir}")
+        if batch_output_dir:
+            print(f"Results saved to {batch_output_dir}")
         print(f"Predicted Real: {real_count} ({real_count/len(results)*100:.1f}%)")
         print(f"Predicted Fake: {fake_count} ({fake_count/len(results)*100:.1f}%)")
         
@@ -307,14 +501,14 @@ def run_inference(checkpoint_path, input_path, output_dir=None, batch_mode=False
             print(f"Actual Real      | {metrics['true_positives']:14d} | {metrics['false_negatives']:14d} |")
             print(f"Actual Fake      | {metrics['false_positives']:14d} | {metrics['true_negatives']:14d} |")
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run inference with GANFingerprint model')
     parser.add_argument('--checkpoint', type=str, required=True, help='Path to model checkpoint')
     parser.add_argument('--input', type=str, required=True, help='Path to input image or directory')
     parser.add_argument('--output', type=str, default=None, help='Directory to save output visualizations')
     parser.add_argument('--batch', action='store_true', help='Process a directory of images')
+    parser.add_argument('--gradcam', action='store_true', help='Generate Grad-CAM visualizations')
     
     args = parser.parse_args()
     
-    run_inference(args.checkpoint, args.input, args.output, args.batch)
+    run_inference(args.checkpoint, args.input, args.output, args.batch, args.gradcam)
