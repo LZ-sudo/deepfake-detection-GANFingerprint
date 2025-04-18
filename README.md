@@ -20,6 +20,9 @@ With GAN image generation images getting more advanced, there may be difficultie
 - Frequency domain analysis to detect GAN fingerprint artifacts
 - Self-attention mechanism for focusing on discriminative regions
 - Highly reproducible results with deterministic implementation
+- Extensive logging of model performance and used hyperparameters
+- Intuitive visualization of model performance in evaluation (Performance metrics, ROC curve, Precision Recall Curve, Confusion Matric)
+- Detailed output for image inference, support for batch mode (Images with Grad-CAM heatmaps, csv files for inference results and performance metrics on batch mode)
 
 ## Model Architecture
 
@@ -51,6 +54,7 @@ deepfake_detector/
 │   ├── metrics.py            # Performance metrics calculation
 │   ├── augmentations.py      # Advanced augmentation techniques
 |   ├── experiment.py         # Logging of information when training model
+|   ├── gradcam.py            # Grad-CAM visualization of inference results
 ├── checkpoints/              # Directory for saved model checkpoints
 ├── logs/                     # TensorBoard logs and training records
 ├── requirements.txt          # Contains all required dependencies 
@@ -146,13 +150,23 @@ data/
 
 Review and update `config.py` to match your environment:
 
+The parameters below are the parameters used to create the following performance metrics:
+
+```
+Accuracy: 0.9476
+Precision: 0.9546
+Recall: 0.9392
+F1-Score: 0.9468
+AUC-ROC: 0.9890
+```
+
 ```python
 # Key parameters to check
 DATA_ROOT = "data"  # Path to your dataset directory
 INPUT_SIZE = 256    # Input image size
 BACKBONE = "resnet34"  # Feature extractor backbone
 BATCH_SIZE = 16     # Adjust based on your GPU memory
-NUM_WORKERS = 4     # Number of data loading workers
+NUM_WORKERS = 10     # Number of data loading workers
 LEARNING_RATE = 5e-5
 NUM_EPOCHS = 20
 DEVICE = "cuda"     # Use "cuda" for GPU, "cpu" for CPU
@@ -197,10 +211,10 @@ python evaluate.py --checkpoint checkpoints/[pth_file_name] --output_dir eval_re
 
 ```bash
 # For a single image
-python inference.py --checkpoint checkpoints/[pth_file_name] --input path/to/image.jpg --output inference_results
+python inference.py --checkpoint checkpoints/[pth_file_name] --input path/to/image.jpg 
 
 # For a directory of images
-python inference.py --checkpoint checkpoints/[pth_file_name] --input path/to/images_dir --output inference_results --batch
+python inference.py --checkpoint checkpoints/[pth_file_name] --input path/to/images_dir --batch
 ```
 
 ## Reproducibility
